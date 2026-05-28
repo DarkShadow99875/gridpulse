@@ -1,2 +1,1 @@
-import { useEffect, useState } from 'react'
- ... (full page) 
+Updated download to use real PDF endpoint
