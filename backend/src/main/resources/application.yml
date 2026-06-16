@@ -52,7 +52,8 @@ spring:
       on-profile: local
 
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/gridpulse}
+    # Legge DB_HOST, DB_PORT, DB_NAME da .env (caricato da start-local.ps1 o docker compose)
+    url: ${DB_URL:jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:gridpulse}}
     driver-class-name: org.postgresql.Driver
     username: ${DB_USER:gridpulse}
     password: ${DB_PASSWORD:gridpulse_dev}
