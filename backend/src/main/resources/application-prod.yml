@@ -1,0 +1,57 @@
+# ============================================
+# PROFILO: prod
+# Configurazione per ambiente di produzione
+# ============================================
+
+spring:
+  datasource:
+    # In produzione è FORTEMENTE consigliato usare variabili d'ambiente
+    # o un secret manager (es. AWS Secrets, Vault, Kubernetes secrets)
+    #
+    # Esempio di variabili per prod:
+    #   PROD_DB_URL=...
+    #   PROD_DB_USER=...
+    #   PROD_DB_PASSWORD=...
+    #
+    # Se non impostate, il sistema proverà a usare DB_* (da .env o OS env)
+
+    url: ${PROD_DB_URL:${DB_URL:jdbc:postgresql://${PROD_DB_HOST:localhost}:${PROD_DB_PORT:5432}/${PROD_DB_NAME:gridpulse}}}
+    username: ${PROD_DB_USER:${DB_USER:gridpulse}}
+    password: ${PROD_DB_PASSWORD:${DB_PASSWORD:}}
+
+  jpa:
+    hibernate:
+      ddl-auto: validate     # Mai usare create-drop o update in produzione!
+    show-sql: false
+
+  # Flyway è obbligatorio in produzione
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    validate-on-migrate: true
+    out-of-order: false
+
+  # Buona pratica: disattiva il banner in prod
+  banner:
+    location: ""
+
+server:
+  # In prod spesso si mette dietro un reverse proxy (nginx, traefik, ecc.)
+  # quindi il contesto può essere utile
+  servlet:
+    context-path: ${SERVER_CONTEXT_PATH:/}
+
+logging:
+  level:
+    com.gridpulse: ${LOG_LEVEL:INFO}
+    org.springframework.web: WARN
+    org.hibernate: WARN
+
+# Esempio di connection pool più aggressivo per produzione (HikariCP)
+spring.datasource.hikari:
+  maximum-pool-size: 20
+  minimum-idle: 5
+  idle-timeout: 300000
+  connection-timeout: 30000
+  max-lifetime: 1200000

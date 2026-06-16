@@ -1,0 +1,71 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: gridpulse
+
+  # ============================================
+  # DEFAULT = H2 (zero-config demo) - RACCOMANDATO PER SVILUPPO
+  # Per usare PostgreSQL (con Docker) attiva ESPLICITAMENTE il profilo "local"
+  #
+  # Comando sicuro per H2 (ignora tutto):
+  #   mvn spring-boot:run -Dspring-boot.run.profiles=h2 -Dspring.datasource.url=jdbc:h2:mem:gridpulse -Dspring.flyway.enabled=false
+  # ============================================
+
+  datasource:
+    url: jdbc:h2:mem:gridpulse;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop     # Per H2 ricreiamo tutto ogni volta (semplice per demo)
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.H2Dialect
+
+  # Flyway disabilitato di default per H2 (usiamo ddl-auto)
+  flyway:
+    enabled: false
+
+logging:
+  level:
+    com.gridpulse: INFO
+    org.springframework.web: INFO
+
+# ============================================
+# PROFILO "local" → PostgreSQL (Docker o macchina locale)
+# ============================================
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/gridpulse}
+    driver-class-name: org.postgresql.Driver
+    username: ${DB_USER:gridpulse}
+    password: ${DB_PASSWORD:gridpulse_dev}
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    validate-on-migrate: true

@@ -1,0 +1,39 @@
+# ============================================
+# PROFILO "h2" - Demo rapida zero-config (consigliato per sviluppo locale senza Docker)
+# ============================================
+# Avvio:
+#   cd backend
+#   mvn spring-boot:run -Dspring-boot.run.profiles=h2
+#
+# Poi apri il browser su http://localhost:8080
+# ============================================
+
+spring:
+  # Forza H2 in modo molto aggressivo
+  datasource:
+    url: jdbc:h2:mem:gridpulse;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.H2Dialect
+
+  flyway:
+    enabled: false
+
+logging:
+  level:
+    com.gridpulse: INFO
+    org.springframework.web: INFO

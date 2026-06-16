@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import axios from 'axios'
+import axiosInstance from '../services/axiosInstance'
 import { Brain, AlertTriangle, Calendar, TrendingUp } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
@@ -16,6 +16,7 @@ interface Plant {
   id: number
   name: string
   type: string
+  location?: string
 }
 
 export default function AiInsights() {
@@ -27,7 +28,7 @@ export default function AiInsights() {
   useEffect(() => {
     const fetchPlants = async () => {
       try {
-        const { data } = await axios.get('/api/plants')
+        const { data } = await axiosInstance.get('/api/plants')
         setPlants(data)
         if (data.length > 0) {
           setSelectedPlant(data[0].id)
@@ -42,7 +43,7 @@ export default function AiInsights() {
   const loadInsight = async (plantId: number) => {
     setLoading(true)
     try {
-      const { data } = await axios.get(`/api/ai/insights/${plantId}`)
+      const { data } = await axiosInstance.get(`/api/ai/insights/${plantId}`)
       setInsight(data)
     } catch (error) {
       toast.error('Errore nel recupero delle previsioni AI')

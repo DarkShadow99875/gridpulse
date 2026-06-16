@@ -1,0 +1,27 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: gridpulse-db
+    restart: unless-stopped
+    # Carica automaticamente le variabili da .env se il file esiste
+    # (copia .env.example in .env e personalizza)
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      # Valori di default (usati se non presenti in .env)
+      POSTGRES_DB: ${DB_NAME:-gridpulse}
+      POSTGRES_USER: ${DB_USER:-gridpulse}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-gridpulse_dev}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - gridpulse_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-gridpulse} -d ${DB_NAME:-gridpulse}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  gridpulse_pgdata:

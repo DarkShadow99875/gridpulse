@@ -15,7 +15,7 @@ public class AiInsightService {
 
     public AiInsight generateInsight(EnergyPlant plant, List<Metric> recentMetrics) {
         if (recentMetrics.isEmpty()) {
-            return new AiInsight("No data available", "LOW", LocalDate.now().plusDays(30), "Insufficient data for prediction");
+            return new AiInsight("LOW", LocalDate.now().plusDays(30), "Insufficient data for prediction", 0.0, "N/A");
         }
 
         Metric latest = recentMetrics.get(recentMetrics.size() - 1);

@@ -5,14 +5,14 @@ import com.gridpulse.model.Metric;
 import com.gridpulse.repository.EnergyPlantRepository;
 import com.gridpulse.repository.MetricRepository;
 import com.gridpulse.service.AiInsightService;
-import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/ai")
-@CrossOrigin(origins = "http://localhost:5173")
 public class AiController {
 
     private final AiInsightService aiInsightService;
@@ -28,9 +28,9 @@ public class AiController {
     }
 
     @GetMapping("/insights/{plantId}")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'COMPANY_ADMIN', 'OPERATOR')")
     public AiInsightService.AiInsight getPlantInsight(@PathVariable Long plantId) {
-        EnergyPlant plant = plantRepository.findById(plantId).orElseThrow();
+        EnergyPlant plant = plantRepository.findById(plantId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Plant not found"));
         List<Metric> recentMetrics = metricRepository.findTop30ByPlantIdOrderByRecordedAtDesc(plantId);
         return aiInsightService.generateInsight(plant, recentMetrics);
     }
