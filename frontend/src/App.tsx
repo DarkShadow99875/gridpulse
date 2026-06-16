@@ -1,24 +1,27 @@
 import { Routes, Route, NavLink, useLocation, Navigate } from 'react-router-dom'
 import { 
   LayoutDashboard, Brain, MessageCircle, FileText, 
-  MapPin, Zap, LogOut, Users 
+  MapPin, Zap, LogOut, Users, Factory
 } from 'lucide-react'
 import Dashboard from './pages/Dashboard'
+import Home from './pages/Home'
 import AiInsights from './pages/AiInsights'
 import AiChat from './pages/AiChat'
 import EsgReport from './pages/EsgReport'
 import TerritorialAnalysis from './pages/TerritorialAnalysis'
 import Login from './pages/Login'
+import Register from './pages/Register'
 import UserManagement from './pages/UserManagement'
+import PlantManagement from './pages/PlantManagement'
 import { AuthProvider, useAuth } from './context/AuthContext'
 
-// Menu items with optional required roles
 const navItems = [
-  { path: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/insights', label: 'AI Insights', icon: Brain },
   { path: '/chat', label: 'AI Chat', icon: MessageCircle },
   { path: '/reports', label: 'Report ESG', icon: FileText },
   { path: '/analysis', label: 'Analisi Territoriale', icon: MapPin },
+  { path: '/admin/plants', label: 'Gestione Impianti', icon: Factory, roles: ['OPERATOR', 'ADMIN', 'SUPER_ADMIN'] },
   { path: '/admin/users', label: 'Gestione Utenti', icon: Users, roles: ['ADMIN', 'SUPER_ADMIN'] },
 ];
 
@@ -57,11 +60,10 @@ function ProtectedRoute({ children, requiredRoles }: ProtectedRouteProps) {
 
 function MainLayout() {
   const location = useLocation();
-  const { logout, hasAnyRole } = useAuth();
+  const { logout, hasAnyRole, displayName, email } = useAuth();
 
   return (
     <div className="flex h-screen overflow-hidden bg-zinc-950">
-      {/* Sidebar */}
       <div className="w-72 border-r border-zinc-800 bg-zinc-950 flex flex-col">
         <div className="p-8 border-b border-zinc-800">
           <div className="flex items-center gap-3">
@@ -80,7 +82,6 @@ function MainLayout() {
           <nav className="space-y-1">
             {navItems
               .filter((item) => {
-                // If no roles required, show to everyone
                 if (!item.roles || item.roles.length === 0) return true;
                 return hasAnyRole(item.roles);
               })
@@ -105,8 +106,15 @@ function MainLayout() {
           </nav>
         </div>
 
-        {/* Logout Button */}
         <div className="p-4 border-t border-zinc-800">
+          <div className="px-4 py-2 mb-2">
+            <div className="text-sm font-medium text-zinc-200 truncate">
+              {displayName || email}
+            </div>
+            {displayName && (
+              <div className="text-xs text-zinc-500 truncate">{email}</div>
+            )}
+          </div>
           <button
             onClick={logout}
             className="flex w-full items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-zinc-400 hover:bg-zinc-900 hover:text-red-400 transition"
@@ -121,53 +129,39 @@ function MainLayout() {
         </div>
       </div>
 
-      {/* Main content */}
       <div className="flex-1 overflow-auto">
         <div className="min-h-full">
           <Routes>
-            {/* Root redirect */}
             <Route 
-              path="/" 
-              element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              } 
+              path="/dashboard" 
+              element={<Dashboard />}
             />
 
             <Route 
               path="/insights" 
-              element={
-                <ProtectedRoute>
-                  <AiInsights />
-                </ProtectedRoute>
-              } 
+              element={<AiInsights />}
             />
 
             <Route 
               path="/chat" 
-              element={
-                <ProtectedRoute>
-                  <AiChat />
-                </ProtectedRoute>
-              } 
+              element={<AiChat />}
             />
 
             <Route 
               path="/reports" 
-              element={
-                <ProtectedRoute>
-                  <EsgReport />
-                </ProtectedRoute>
-              } 
+              element={<EsgReport />}
             />
 
-            {/* Analisi Territoriale - visible to everyone logged in for now */}
             <Route 
               path="/analysis" 
+              element={<TerritorialAnalysis />}
+            />
+
+            <Route 
+              path="/admin/plants" 
               element={
-                <ProtectedRoute>
-                  <TerritorialAnalysis />
+                <ProtectedRoute requiredRoles={['OPERATOR', 'ADMIN', 'SUPER_ADMIN']}>
+                  <PlantManagement />
                 </ProtectedRoute>
               } 
             />
@@ -180,6 +174,8 @@ function MainLayout() {
                 </ProtectedRoute>
               } 
             />
+
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </div>
       </div>
@@ -191,7 +187,9 @@ export default function App() {
   return (
     <AuthProvider>
       <Routes>
+        <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
         <Route 
           path="/*" 
           element={
@@ -204,4 +202,3 @@ export default function App() {
     </AuthProvider>
   );
 }
-

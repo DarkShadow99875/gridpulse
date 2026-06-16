@@ -17,8 +17,13 @@ public class UserResponse {
     private Set<String> roles;
     private LocalDateTime createdAt;
     private boolean hasPendingInvitation;
+    private String invitationToken;
 
     public static UserResponse from(User user) {
+        return from(user, false);
+    }
+
+    public static UserResponse from(User user, boolean includeInvitationToken) {
         UserResponse dto = new UserResponse();
         dto.id = user.getId();
         dto.email = user.getEmail();
@@ -29,10 +34,12 @@ public class UserResponse {
         dto.roles = user.getRoles().stream().map(r -> r.getName()).collect(Collectors.toSet());
         dto.createdAt = user.getCreatedAt();
         dto.hasPendingInvitation = user.getInvitationToken() != null && user.isInvitationValid();
+        if (includeInvitationToken && dto.hasPendingInvitation) {
+            dto.invitationToken = user.getInvitationToken();
+        }
         return dto;
     }
 
-    // Getters
     public Long getId() { return id; }
     public String getEmail() { return email; }
     public String getFullName() { return fullName; }
@@ -42,4 +49,5 @@ public class UserResponse {
     public Set<String> getRoles() { return roles; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public boolean isHasPendingInvitation() { return hasPendingInvitation; }
+    public String getInvitationToken() { return invitationToken; }
 }

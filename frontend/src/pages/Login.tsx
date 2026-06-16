@@ -1,6 +1,7 @@
 import { useState } from 'react';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { Zap } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -11,8 +12,20 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const { login } = useAuth();
+  const { login, verifyMfa, isAuthenticated, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+
+  if (authLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-zinc-950 text-zinc-400">
+        Caricamento...
+      </div>
+    );
+  }
+
+  if (isAuthenticated) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,28 +33,16 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const response = await fetch('http://localhost:8080/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
+      const result = await login(email, password);
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Login failed');
-      }
-
-      if (data.mfaRequired) {
+      if (result.mfaRequired) {
         setMfaRequired(true);
-        setMfaMethod(data.mfaMethod);
+        setMfaMethod(result.mfaMethod || '');
       } else {
-        // Normal login success
-        await login(email, password); // this will also store tokens
-        navigate('/');
+        navigate('/dashboard');
       }
-    } catch (err: any) {
-      setError(err.message || 'Login failed');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Accesso non riuscito');
     } finally {
       setLoading(false);
     }
@@ -53,37 +54,24 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const res = await fetch('http://localhost:8080/api/auth/mfa/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, code: mfaCode }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message || 'Codice 2FA non valido');
-      }
-
-      // Store tokens
-      localStorage.setItem('accessToken', data.accessToken);
-      localStorage.setItem('refreshToken', data.refreshToken);
-
-      navigate('/');
-    } catch (err: any) {
-      setError(err.message);
+      await verifyMfa(email, mfaCode);
+      navigate('/dashboard');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Codice 2FA non valido');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-zinc-950">
+    <div className="min-h-screen flex items-center justify-center bg-zinc-950 px-4">
       <div className="w-full max-w-md p-8 bg-zinc-900 rounded-3xl border border-zinc-800">
         <div className="text-center mb-8">
-          <div className="w-14 h-14 bg-emerald-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <span className="text-black text-3xl font-bold">G</span>
-          </div>
+          <Link to="/" className="inline-block">
+            <div className="w-14 h-14 bg-emerald-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <Zap className="w-7 h-7 text-black" />
+            </div>
+          </Link>
           <h1 className="text-2xl font-semibold tracking-tight">GridPulse</h1>
           <p className="text-zinc-400 text-sm mt-1">Accedi alla piattaforma</p>
         </div>
@@ -99,6 +87,7 @@ export default function Login() {
                 className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-2xl text-white focus:outline-none focus:border-emerald-500"
                 placeholder="nome@azienda.it"
                 required
+                autoComplete="email"
               />
             </div>
 
@@ -111,6 +100,7 @@ export default function Login() {
                 className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-2xl text-white focus:outline-none focus:border-emerald-500"
                 placeholder="••••••••"
                 required
+                autoComplete="current-password"
               />
             </div>
 
@@ -163,11 +153,18 @@ export default function Login() {
           </form>
         )}
 
-        <div className="mt-6 text-center text-xs text-zinc-500">
-          Accesso riservato al personale autorizzato
+        <div className="mt-6 space-y-3 text-center text-sm text-zinc-500">
+          <p>
+            Non hai un account?{' '}
+            <Link to="/register" className="text-emerald-400 hover:text-emerald-300 transition">
+              Crea profilo
+            </Link>
+          </p>
+          <Link to="/" className="inline-block text-xs text-zinc-400 hover:text-emerald-400 transition">
+            ← Torna alla home
+          </Link>
         </div>
       </div>
     </div>
   );
 }
-

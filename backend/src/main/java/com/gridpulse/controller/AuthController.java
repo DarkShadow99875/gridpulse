@@ -1,5 +1,6 @@
 package com.gridpulse.controller;
 
+import com.gridpulse.dto.RegisterRequest;
 import com.gridpulse.service.AuthService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -38,6 +39,23 @@ public class AuthController {
     public ResponseEntity<Void> logout(@RequestBody RefreshRequest request) {
         authService.logout(request.refreshToken());
         return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/invitation/{token}")
+    public ResponseEntity<Map<String, String>> getInvitationInfo(@PathVariable String token) {
+        return ResponseEntity.ok(authService.getInvitationInfo(token));
+    }
+
+    @PostMapping("/register")
+    public ResponseEntity<AuthService.AuthResponse> register(@RequestBody RegisterRequest request) {
+        AuthService.AuthResponse response = authService.register(
+                request.getEmail(),
+                request.getFirstName(),
+                request.getLastName(),
+                request.getPassword(),
+                request.getInvitationToken()
+        );
+        return ResponseEntity.ok(response);
     }
 
     public record LoginRequest(String email, String password) {}

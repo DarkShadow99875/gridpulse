@@ -1,84 +1,138 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { authService } from '../services/authService';
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { authService, decodeToken, RegisterPayload } from '../services/authService';
 import { enableGlobalAuthFetch } from '../services/api';
 import { useNavigate } from 'react-router-dom';
 
 interface AuthContextType {
   isAuthenticated: boolean;
+  email: string | null;
+  displayName: string | null;
   roles: string[];
   hasRole: (role: string) => boolean;
   hasAnyRole: (roles: string[]) => boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<{ mfaRequired: boolean; mfaMethod: string | null }>;
+  register: (payload: RegisterPayload) => Promise<void>;
+  verifyMfa: (email: string, code: string) => Promise<void>;
   logout: () => Promise<void>;
   loading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function extractRolesFromToken(token: string): string[] {
+  const payload = decodeToken(token);
+  if (!payload) return [];
+  const roleList = payload.roles || [];
+  return Array.isArray(roleList) ? roleList : [];
+}
+
+function extractUserFromToken(token: string): { email: string; displayName: string | null } {
+  const payload = decodeToken(token);
+  return {
+    email: payload?.sub || '',
+    displayName: payload?.name || null,
+  };
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [email, setEmail] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState<string | null>(null);
   const [roles, setRoles] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  // Helper to decode JWT and extract roles (simple base64 decode)
-  const extractRolesFromToken = (token: string): string[] => {
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      // We expect roles to come either as "roles" or "authorities"
-      const roleList = payload.roles || payload.authorities || [];
-      if (Array.isArray(roleList)) {
-        return roleList.map((r: any) => typeof r === 'string' ? r : r.authority || r);
-      }
-      return [];
-    } catch {
-      return [];
-    }
-  };
-
-  const updateAuthState = (token: string | null) => {
+  const applySession = useCallback((token: string | null) => {
     if (token) {
       enableGlobalAuthFetch();
-      const extractedRoles = extractRolesFromToken(token);
-      setRoles(extractedRoles);
+      const user = extractUserFromToken(token);
+      setEmail(user.email || null);
+      setDisplayName(user.displayName);
+      setRoles(extractRolesFromToken(token));
       setIsAuthenticated(true);
     } else {
+      setEmail(null);
+      setDisplayName(null);
       setRoles([]);
       setIsAuthenticated(false);
     }
-  };
-
-  useEffect(() => {
-    const token = authService.getAccessToken();
-    updateAuthState(token);
-    setLoading(false);
   }, []);
 
-  const login = async (email: string, password: string) => {
-    const response = await authService.login(email, password);
-    updateAuthState(response.accessToken);
+  useEffect(() => {
+    const initAuth = async () => {
+      try {
+        let token = authService.getAccessToken();
+
+        if (token && authService.isAuthenticated()) {
+          applySession(token);
+        } else if (authService.getRefreshToken()) {
+          token = await authService.refresh();
+          applySession(token);
+        } else {
+          await authService.logout();
+          applySession(null);
+        }
+      } catch {
+        await authService.logout();
+        applySession(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initAuth();
+  }, [applySession]);
+
+  const login = async (emailInput: string, password: string) => {
+    const response = await authService.login(emailInput, password);
+
+    if (!response.mfaRequired && response.accessToken) {
+      applySession(response.accessToken);
+    }
+
+    return {
+      mfaRequired: response.mfaRequired,
+      mfaMethod: response.mfaMethod,
+    };
+  };
+
+  const register = async (payload: RegisterPayload) => {
+    const response = await authService.register(payload);
+    if (response.accessToken) {
+      applySession(response.accessToken);
+    }
+  };
+
+  const verifyMfa = async (emailInput: string, code: string) => {
+    const response = await authService.verifyMfa(emailInput, code);
+    if (response.accessToken) {
+      applySession(response.accessToken);
+    }
   };
 
   const logout = async () => {
     await authService.logout();
-    setRoles([]);
-    setIsAuthenticated(false);
+    applySession(null);
     navigate('/login');
   };
 
   const hasRole = (role: string) => roles.includes(role);
-  const hasAnyRole = (requiredRoles: string[]) => requiredRoles.some(r => roles.includes(r));
+  const hasAnyRole = (requiredRoles: string[]) => requiredRoles.some((r) => roles.includes(r));
 
   return (
-    <AuthContext.Provider 
-      value={{ 
-        isAuthenticated, 
-        roles, 
-        hasRole, 
+    <AuthContext.Provider
+      value={{
+        isAuthenticated,
+        email,
+        displayName,
+        roles,
+        hasRole,
         hasAnyRole,
-        login, 
-        logout, 
-        loading 
+        login,
+        register,
+        verifyMfa,
+        logout,
+        loading,
       }}
     >
       {children}
@@ -93,4 +147,3 @@ export const useAuth = () => {
   }
   return context;
 };
-

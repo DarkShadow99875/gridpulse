@@ -1,64 +1,91 @@
 package com.gridpulse.controller;
 
+import com.gridpulse.dto.EnergyPlantDto;
+import com.gridpulse.dto.MetricDto;
 import com.gridpulse.model.EnergyPlant;
 import com.gridpulse.model.Metric;
-import com.gridpulse.repository.EnergyPlantRepository;
-import com.gridpulse.repository.MetricRepository;
+import com.gridpulse.service.EnergyPlantService;
+import com.gridpulse.service.MetricService;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/plants")
 public class PlantController {
 
-    private final EnergyPlantRepository plantRepository;
-    private final MetricRepository metricRepository;
+    private final EnergyPlantService plantService;
+    private final MetricService metricService;
 
-    public PlantController(EnergyPlantRepository plantRepository, MetricRepository metricRepository) {
-        this.plantRepository = plantRepository;
-        this.metricRepository = metricRepository;
+    public PlantController(EnergyPlantService plantService, MetricService metricService) {
+        this.plantService = plantService;
+        this.metricService = metricService;
     }
 
     @GetMapping
     @PreAuthorize("hasAuthority('PLANT_READ')")
-    public List<EnergyPlant> getAllPlants(@RequestParam(required = false) String company) {
-        if (company != null && !company.isBlank()) {
-            return plantRepository.findByCompany(company);
-        }
-        return plantRepository.findAll();
+    public List<EnergyPlantDto> getAllPlants(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String type,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String company) {
+        return plantService.findAllFiltered(search, type, status, company).stream()
+                .map(EnergyPlantDto::from)
+                .toList();
     }
 
     @GetMapping("/{id}")
-    public EnergyPlant getPlant(@PathVariable Long id) {
-        return plantRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Plant not found: " + id));
+    @PreAuthorize("hasAuthority('PLANT_READ')")
+    public EnergyPlantDto getPlant(@PathVariable Long id) {
+        return EnergyPlantDto.from(plantService.findById(id));
+    }
+
+    @PostMapping
+    @PreAuthorize("hasAuthority('PLANT_CREATE')")
+    public ResponseEntity<EnergyPlantDto> createPlant(@RequestBody EnergyPlantDto dto) {
+        EnergyPlant plant = plantService.create(dto);
+        return ResponseEntity.ok(EnergyPlantDto.from(plant));
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('PLANT_UPDATE')")
+    public ResponseEntity<EnergyPlantDto> updatePlant(@PathVariable Long id, @RequestBody EnergyPlantDto dto) {
+        EnergyPlant plant = plantService.update(id, dto);
+        return ResponseEntity.ok(EnergyPlantDto.from(plant));
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('PLANT_DELETE')")
+    public ResponseEntity<Void> deletePlant(@PathVariable Long id) {
+        plantService.delete(id);
+        return ResponseEntity.ok().build();
     }
 
     @GetMapping("/{id}/metrics")
-    public List<Metric> getPlantMetrics(@PathVariable Long id,
-                                        @RequestParam(required = false) String start,
-                                        @RequestParam(required = false) String end,
-                                        @RequestParam(required = false) Integer limit) {
-
-        if (start != null && end != null) {
-            LocalDate startDate = LocalDate.parse(start);
-            LocalDate endDate = LocalDate.parse(end);
-            LocalDateTime startDateTime = startDate.atStartOfDay();
-            LocalDateTime endDateTime = endDate.atTime(23, 59, 59);
-            return metricRepository.findByPlantIdAndRecordedAtBetweenOrderByRecordedAtAsc(id, startDateTime, endDateTime);
-        }
-
-        int effectiveLimit = (limit != null) ? limit : 30;
-        List<Metric> metrics = metricRepository.findByPlantIdOrderByRecordedAtDesc(id);
-        return metrics.size() > effectiveLimit ? metrics.subList(0, effectiveLimit) : metrics;
+    @PreAuthorize("hasAuthority('PLANT_READ')")
+    public List<MetricDto> getPlantMetrics(@PathVariable Long id,
+                                           @RequestParam(required = false) String start,
+                                           @RequestParam(required = false) String end,
+                                           @RequestParam(required = false) Integer limit) {
+        return metricService.findByPlant(id, start, end, limit).stream()
+                .map(MetricDto::from)
+                .toList();
     }
 
     @GetMapping("/{id}/metrics/recent")
-    public List<Metric> getRecentMetrics(@PathVariable Long id) {
-        return metricRepository.findTop30ByPlantIdOrderByRecordedAtDesc(id);
+    @PreAuthorize("hasAuthority('PLANT_READ')")
+    public List<MetricDto> getRecentMetrics(@PathVariable Long id) {
+        return metricService.findRecent(id).stream()
+                .map(MetricDto::from)
+                .toList();
+    }
+
+    @PostMapping("/{id}/metrics")
+    @PreAuthorize("hasAuthority('METRIC_WRITE')")
+    public ResponseEntity<MetricDto> createMetric(@PathVariable Long id, @RequestBody MetricDto dto) {
+        Metric metric = metricService.create(id, dto);
+        return ResponseEntity.ok(MetricDto.from(metric));
     }
 }
