@@ -1,4 +1,4 @@
-const API_URL = 'http://localhost:8080/api/auth';
+const API_URL = '/api/auth';
 
 export interface AuthResponse {
   accessToken: string | null;
@@ -52,11 +52,14 @@ function clearTokens() {
 }
 
 async function parseError(res: Response): Promise<string> {
+  const text = await res.text();
+  if (!text) return 'Operazione non riuscita';
+
   try {
-    const data = await res.json();
+    const data = JSON.parse(text);
     return data.message || data.error || 'Operazione non riuscita';
   } catch {
-    return (await res.text()) || 'Operazione non riuscita';
+    return text;
   }
 }
 
@@ -106,6 +109,8 @@ export const authService = {
   },
 
   async login(email: string, password: string): Promise<AuthResponse> {
+    clearTokens();
+
     const res = await fetch(`${API_URL}/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

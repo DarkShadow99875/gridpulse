@@ -1,12 +1,14 @@
 import { authService } from './authService';
 
-const BACKEND_URL = 'http://localhost:8080';
+let nativeFetch: typeof window.fetch = window.fetch.bind(window);
+let fetchPatched = false;
 
-// Helper to normalize URL to always hit the backend
+function isAuthEndpoint(url: string): boolean {
+  return url.includes('/api/auth/');
+}
+
 function normalizeUrl(input: RequestInfo | URL): string {
   if (typeof input === 'string') {
-    if (input.startsWith('http')) return input;
-    if (input.startsWith('/api')) return `${BACKEND_URL}${input}`;
     return input;
   }
   return input.toString();
@@ -14,21 +16,24 @@ function normalizeUrl(input: RequestInfo | URL): string {
 
 // Global fetch wrapper that automatically adds the JWT token + fixes URL
 export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {}) {
-  const token = authService.getAccessToken();
   const finalUrl = normalizeUrl(input);
 
+  if (isAuthEndpoint(finalUrl)) {
+    return nativeFetch(finalUrl, init);
+  }
+
+  const token = authService.getAccessToken();
   const headers = new Headers(init.headers || {});
 
   if (token) {
     headers.set('Authorization', `Bearer ${token}`);
   }
 
-  let response = await fetch(finalUrl, {
+  let response = await nativeFetch(finalUrl, {
     ...init,
     headers,
   });
 
-  // Auto refresh on 401
   if (response.status === 401) {
     try {
       await authService.refresh();
@@ -36,7 +41,7 @@ export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {})
 
       if (newToken) {
         headers.set('Authorization', `Bearer ${newToken}`);
-        response = await fetch(finalUrl, { ...init, headers });
+        response = await nativeFetch(finalUrl, { ...init, headers });
       } else {
         await authService.logout();
         window.location.href = '/login';
@@ -50,41 +55,48 @@ export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {})
   return response;
 }
 
-// Optional: patch global fetch for existing code (use with caution)
 export function enableGlobalAuthFetch() {
-  const originalFetch = window.fetch;
+  if (fetchPatched) return;
+
+  nativeFetch = window.fetch.bind(window);
+  fetchPatched = true;
 
   window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
-    const token = authService.getAccessToken();
+    const url = typeof input === 'string' ? input : input.toString();
 
-    if (token && typeof input === 'string' && input.includes('/api/')) {
-      const finalInput = input.startsWith('http') ? input : `${BACKEND_URL}${input.startsWith('/') ? '' : '/'}${input}`;
-      const headers = new Headers(init?.headers || {});
-      if (!headers.has('Authorization')) {
-        headers.set('Authorization', `Bearer ${token}`);
-      }
-
-      let response = await originalFetch(finalInput, { ...init, headers });
-
-      if (response.status === 401) {
-        try {
-          await authService.refresh();
-          const newToken = authService.getAccessToken();
-          if (newToken) {
-            headers.set('Authorization', `Bearer ${newToken}`);
-            response = await originalFetch(input, { ...init, headers });
-          }
-        } catch {
-          await authService.logout();
-          window.location.href = '/login';
-        }
-      }
-
-      return response;
+    if (!authService.getAccessToken() || isAuthEndpoint(url)) {
+      return nativeFetch(input, init);
     }
 
-    return originalFetch(input, init);
+    const headers = new Headers(init?.headers || {});
+    if (!headers.has('Authorization')) {
+      headers.set('Authorization', `Bearer ${authService.getAccessToken()}`);
+    }
+
+    let response = await nativeFetch(input, { ...init, headers });
+
+    if (response.status === 401) {
+      try {
+        await authService.refresh();
+        const newToken = authService.getAccessToken();
+        if (newToken) {
+          headers.set('Authorization', `Bearer ${newToken}`);
+          response = await nativeFetch(input, { ...init, headers });
+        }
+      } catch {
+        await authService.logout();
+        window.location.href = '/login';
+      }
+    }
+
+    return response;
   };
+}
+
+export function disableGlobalAuthFetch() {
+  if (!fetchPatched) return;
+  window.fetch = nativeFetch;
+  fetchPatched = false;
 }
 
 export default apiFetch;

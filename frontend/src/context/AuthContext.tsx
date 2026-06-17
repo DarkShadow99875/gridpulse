@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { authService, decodeToken, RegisterPayload } from '../services/authService';
-import { enableGlobalAuthFetch } from '../services/api';
+import { disableGlobalAuthFetch, enableGlobalAuthFetch } from '../services/api';
 import { useNavigate } from 'react-router-dom';
 
 interface AuthContextType {
@@ -51,6 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setRoles(extractRolesFromToken(token));
       setIsAuthenticated(true);
     } else {
+      disableGlobalAuthFetch();
       setEmail(null);
       setDisplayName(null);
       setRoles([]);

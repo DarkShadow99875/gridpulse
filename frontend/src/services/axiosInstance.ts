@@ -2,7 +2,7 @@ import axios from 'axios';
 import { authService } from './authService';
 
 const axiosInstance = axios.create({
-  baseURL: 'http://localhost:8080',   // Always hit the backend directly
+  baseURL: '',
   withCredentials: false,
 });
 
