@@ -14,7 +14,7 @@ services:
       POSTGRES_USER: ${DB_USER:-gridpulse}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-gridpulse_dev}
     ports:
-      - "${DB_PORT:-5432}:5432"
+      - "${DB_PORT:-5433}:5432"
     volumes:
       - gridpulse_pgdata:/var/lib/postgresql/data
     healthcheck:

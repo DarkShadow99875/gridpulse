@@ -48,6 +48,16 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- Flyway (migrazioni DB per profilo local/prod) -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+        </dependency>
+
         <!-- H2 Database (solo per demo rapida con profilo 'h2') -->
         <dependency>
             <groupId>com.h2database</groupId>
